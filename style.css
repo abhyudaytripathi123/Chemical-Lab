@@ -224,7 +224,64 @@ body {
     transition: height 0.3s ease-in-out, background-color 0.3s;
 }
 
+/* --- Hazard & Damage Effects --- */
+.canvas-item.shattered {
+    border-color: #ff3333 !important;
+    background-color: rgba(255, 0, 0, 0.2) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.6) !important;
+    animation: shake 0.3s ease-in-out;
+}
+
+.canvas-item.shattered .item-icon {
+    filter: drop-shadow(0 0 5px red);
+}
+
+.log-entry.hazard {
+    color: #ff4d4d;
+    font-weight: bold;
+    background-color: rgba(255, 77, 77, 0.1);
+    padding: 2px 5px;
+    border-left: 3px solid #ff4d4d;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
 /* Specific chemical colors */
 .liquid-fill.acid { background-color: rgba(255, 77, 77, 0.5); }
 .liquid-fill.base { background-color: rgba(77, 77, 255, 0.5); }
 .liquid-fill.water { background-color: rgba(77, 204, 255, 0.3); }
+
+/* --- Thermodynamics & Visual Effects --- */
+.canvas-item.heating::after {
+    content: '🔥';
+    position: absolute;
+    bottom: -10px;
+    font-size: 18px;
+    animation: flicker 0.4s infinite alternate ease-in-out;
+}
+
+.liquid-fill.boiling::before {
+    content: '🫧🫧';
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    letter-spacing: 2px;
+    animation: bubble 0.5s infinite ease-in-out;
+}
+
+@keyframes flicker {
+    0% { opacity: 0.7; transform: translateX(-50%) scale(0.9); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+}
+
+@keyframes bubble {
+    0% { transform: translate(-50%, 0); opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { transform: translate(-50%, -12px); opacity: 0; }
+}
