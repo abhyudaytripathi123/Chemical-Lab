@@ -167,3 +167,42 @@ body {
 }
 .danger-btn:hover { background-color: #c9302c; }
 .placeholder-text { color: #666; font-style: italic; }
+
+/* --- Canvas Items (Dropped Equipment) --- */
+.canvas-item {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    background-color: rgba(77, 166, 255, 0.1);
+    border: 2px solid #4da6ff;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    transition: box-shadow 0.1s;
+    z-index: 100;
+}
+
+.canvas-item:active {
+    cursor: grabbing;
+}
+
+.canvas-item.selected {
+    border-color: #ffcc00; /* Highlights the active item in yellow */
+    background-color: rgba(255, 204, 0, 0.1);
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+    z-index: 110;
+}
+
+/* Optional: Icon placeholder for items */
+.item-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
