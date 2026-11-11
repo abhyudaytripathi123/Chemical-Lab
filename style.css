@@ -206,3 +206,25 @@ body {
     font-size: 24px;
     margin-bottom: 5px;
 }
+
+/* --- Liquid Fill Visualization --- */
+.canvas-item {
+    position: relative;
+    overflow: hidden; /* Ensures liquid doesn't spill outside the border */
+}
+
+.liquid-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%; /* Will be controlled by JavaScript based on volume */
+    background-color: rgba(77, 166, 255, 0.4); /* Default transparent blue */
+    z-index: -1;
+    transition: height 0.3s ease-in-out, background-color 0.3s;
+}
+
+/* Specific chemical colors */
+.liquid-fill.acid { background-color: rgba(255, 77, 77, 0.5); }
+.liquid-fill.base { background-color: rgba(77, 77, 255, 0.5); }
+.liquid-fill.water { background-color: rgba(77, 204, 255, 0.3); }
