@@ -368,5 +368,366 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRightPanelControls(container.name, itemId);
         window.logToExperiment(`Emptied ${container.name}.`);
     };
+    // --- 6. Equipment Snapping Engine ---
+
+    // A. Define the logic for what can snap to what
+    const snapRules = {
+        'Bunsen Burner': ['Beaker', 'Flask', 'Test Tube'],
+        // You can add more rules later, e.g.:
+        // 'Retort Stand': ['Burette'],
+        // 'Tripod': ['Beaker', 'Flask']
+    };
+
+    // B. Calculate distance between two elements
+    function getDistance(el1, el2) {
+        const rect1 = el1.getBoundingClientRect();
+        const rect2 = el2.getBoundingClientRect();
+        
+        // Calculate center points
+        const center1X = rect1.left + (rect1.width / 2);
+        const center1Y = rect1.top + (rect1.height / 2);
+        const center2X = rect2.left + (rect2.width / 2);
+        const center2Y = rect2.top + (rect2.height / 2);
+
+        return Math.sqrt(Math.pow(center1X - center2X, 2) + Math.pow(center1Y - center2Y, 2));
+    }
+
+    // C. The Snapping Logic (Run when dragging stops)
+    // Modify the existing mouseup event listener from Part 2 (makeItemInteractable)
+    // Find this block in your code:
+    /*
+    document.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            element.style.zIndex = 100; // Reset z-index
+        }
+    });
+    */
+    // And REPLACE it with this:
+
+    const snapThreshold = 60; // Pixels. How close they need to be to snap.
+
+    document.addEventListener('mouseup', (e) => {
+        if (!window.currentDraggingElement) return; // We need to track the current dragged element globally
+        
+        const element = window.currentDraggingElement;
+        const name = element.dataset.itemName; // Assume we save the name in a dataset attribute
+        const itemId = element.id;
+
+        window.isDragging = false;
+        element.style.zIndex = 100;
+        window.currentDraggingElement = null;
+
+        // Check for snapping
+        const allCanvasItems = document.querySelectorAll('.canvas-item');
+        let snapped = false;
+
+        allCanvasItems.forEach(targetEl => {
+            if (targetEl.id === itemId) return; // Don't snap to itself
+
+            const targetName = labState[targetEl.id].name;
+            const distance = getDistance(element, targetEl);
+
+            // 1. Is the target a base (like a Burner) and am I a container?
+            if (snapRules[targetName]) {
+                const canSnap = snapRules[targetName].some(allowed => name.includes(allowed));
+                if (canSnap && distance < snapThreshold) {
+                    executeSnap(element, targetEl, itemId, targetEl.id, 'top');
+                    snapped = true;
+                }
+            }
+            
+            // 2. Am I a base and is the target a container?
+            if (!snapped && snapRules[name]) {
+                const canSnap = snapRules[name].some(allowed => targetName.includes(allowed));
+                if (canSnap && distance < snapThreshold) {
+                    executeSnap(targetEl, element, targetEl.id, itemId, 'top');
+                    snapped = true;
+                }
+            }
+        });
+
+        if (!snapped) {
+            // If we moved it away, break any existing links
+            breakSnapLink(itemId);
+        }
+    });
+
+    // We need to update the mousedown event to track the dragging element globally
+    // Find this block in makeItemInteractable:
+    /*
+    element.addEventListener('mousedown', (e) => {
+        // ... selection logic ...
+        isDragging = true;
+    */
+    // Add these lines right after `isDragging = true;`:
+    /*
+        window.isDragging = true;
+        window.currentDraggingElement = element;
+        element.dataset.itemName = name; // Ensure the name is easily accessible
+    */
+
+    // D. Executing the Snap
+    function executeSnap(childEl, parentEl, childId, parentId, position) {
+        // Visually align them
+        const parentLeft = parseInt(parentEl.style.left, 10);
+        const parentTop = parseInt(parentEl.style.top, 10);
+
+        if (position === 'top') {
+            childEl.style.left = `${parentLeft}px`;
+            childEl.style.top = `${parentTop - 45}px`; // Offset so it sits on top
+        }
+
+        // Logical link in the state engine
+        labState[parentId].attachedItem = childId;
+        labState[childId].attachedTo = parentId;
+
+        // Visual feedback
+        childEl.style.boxShadow = '0 0 10px #4da6ff';
+        setTimeout(() => childEl.style.boxShadow = '', 500);
+
+        window.logToExperiment(`${labState[childId].name} secured to ${labState[parentId].name}.`, 'system');
+    }
+
+    // E. Breaking the Snap Link
+    function breakSnapLink(itemId) {
+        const state = labState[itemId];
+        if (state.attachedTo) {
+            const parentId = state.attachedTo;
+            labState[parentId].attachedItem = null;
+            state.attachedTo = null;
+            window.logToExperiment(`${state.name} removed from ${labState[parentId].name}.`, 'system');
+        }
+        if (state.attachedItem) {
+            const childId = state.attachedItem;
+            labState[childId].attachedTo = null;
+            state.attachedItem = null;
+             window.logToExperiment(`${labState[childId].name} removed from ${state.name}.`, 'system');
+        }
+    }
+    // --- 7. Thermodynamics Engine ---
+
+    const ROOM_TEMP = 22.0; // Ambient temperature in °C
+    const BOILING_POINT = 100.0; // Water boiling point in °C
+
+    // A. Main Thermodynamics Simulation Loop (Runs twice per second)
+    setInterval(() => {
+        simulateHeatTransfer();
+    }, 500);
+
+    function simulateHeatTransfer() {
+        Object.keys(labState).forEach(itemId => {
+            const item = labState[itemId];
+            const itemEl = document.getElementById(itemId);
+            if (!itemEl) return;
+
+            // 1. Heating logic for containers attached to a heat source
+            if (item.isContainer && item.attachedTo) {
+                const heatSource = labState[item.attachedTo];
+                
+                if (heatSource && heatSource.flameIntensity > 0) {
+                    // Heat transfer rate depends on flame intensity and volume inside container
+                    const heatInput = (heatSource.flameIntensity / 100) * 3.5; // °C gained per tick
+                    const volumeFactor = item.currentVolume > 0 ? (50 / item.currentVolume) : 1.5; 
+                    const tempIncrease = heatInput * volumeFactor;
+
+                    item.temperature += tempIncrease;
+
+                    // Cap at boiling point if container holds liquid
+                    if (item.currentVolume > 0 && item.temperature >= BOILING_POINT) {
+                        item.temperature = BOILING_POINT;
+                        
+                        // Add boiling effect
+                        const liquidDiv = itemEl.querySelector('.liquid-fill');
+                        if (liquidDiv && !liquidDiv.classList.contains('boiling')) {
+                            liquidDiv.classList.add('boiling');
+                            window.logToExperiment(`${item.name} has reached its boiling point (100°C)!`, 'system');
+                        }
+                    }
+
+                    // Add heat visual to container
+                    itemEl.classList.add('heating');
+                } else {
+                    itemEl.classList.remove('heating');
+                    coolDown(item, itemEl);
+                }
+            } 
+            // 2. Ambient cooling for unheated containers above room temperature
+            else if (item.isContainer) {
+                itemEl.classList.remove('heating');
+                coolDown(item, itemEl);
+            }
+
+            // 3. Live Telemetry update if this item is currently selected
+            if (itemEl.classList.contains('selected')) {
+                updateTelemetry(item);
+            }
+        });
+    }
+
+    // B. Ambient Cooling Logic
+    function coolDown(item, itemEl) {
+        if (item.temperature > ROOM_TEMP) {
+            item.temperature -= 0.4; // Cooling rate per tick
+            if (item.temperature < ROOM_TEMP) item.temperature = ROOM_TEMP;
+
+            // Remove boiling effect if temperature drops below threshold
+            if (item.temperature < BOILING_POINT - 2) {
+                const liquidDiv = itemEl.querySelector('.liquid-fill');
+                if (liquidDiv) liquidDiv.classList.remove('boiling');
+            }
+        }
+    }
+
+    // C. Enhance Burner Right-Panel Controls to adjust flame intensity dynamically
+    // Hook into existing updateRightPanelControls for Bunsen Burner
+    const previousControlsFunc = updateRightPanelControls;
+    updateRightPanelControls = function(itemName, itemId) {
+        if (itemName.includes('Burner')) {
+            const currentIntensity = labState[itemId].flameIntensity || 0;
+            activeControls.innerHTML = `
+                <h4 style="color:#fff; margin-bottom:10px;">Selected: ${itemName}</h4>
+                <label style="display:block; margin-bottom:5px; font-size:0.85rem;">
+                    Flame Intensity: <span id="intensity-val" style="color:#4da6ff;">${currentIntensity}%</span>
+                </label>
+                <input type="range" id="burner-slider" min="0" max="100" value="${currentIntensity}" style="width:100%;">
+            `;
+
+            // Event listener for the slider
+            document.getElementById('burner-slider').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value, 10);
+                labState[itemId].flameIntensity = val;
+                document.getElementById('intensity-val').textContent = `${val}%`;
+
+                if (val === 0) {
+                    window.logToExperiment(`Bunsen Burner extinguished.`);
+                } else if (val > 0 && currentIntensity === 0) {
+                    window.logToExperiment(`Bunsen Burner ignited at ${val}% intensity.`);
+                }
+            });
+        } else {
+            previousControlsFunc(itemName, itemId);
+        }
+    };
+    // --- 8. Safety & Hazard Engine ---
+
+    const MAX_DRY_TEMP = 160.0; // °C at which empty heated glass shatters
+    const MAX_PRESSURE = 2.5;   // atm limit before sealed containers explode
+
+    // A. Chemical Mixing Safety Verification (Hook into pourChemical)
+    const basePourChemical = pourChemical;
+    pourChemical = function(chemicalName, targetId) {
+        const container = labState[targetId];
+
+        // 1. Check if container is shattered
+        if (container.isShattered) {
+            window.logToExperiment(`Cannot pour into ${container.name}: Glassware is shattered!`, 'hazard');
+            return;
+        }
+
+        // 2. Violation: Water into Concentrated Acid rule ("AA" - Add Acid to water)
+        if (chemicalName === 'Distilled Water' && container.contents.includes('HCl (1M)') && container.currentVolume > 0) {
+            window.logToExperiment(
+                `SAFETY VIOLATION: Adding water directly to concentrated acid causes extreme exothermic splatter! Always add acid to water.`, 
+                'hazard'
+            );
+            triggerSpatterEffect(targetId);
+        }
+
+        // Execute original pour logic
+        basePourChemical(chemicalName, targetId);
+    };
+
+    // B. Hazard Checks inside Thermodynamics & Pressure Loop
+    // Extend simulateHeatTransfer to enforce thermal and pressure breakage
+    const baseHeatTransfer = simulateHeatTransfer;
+    simulateHeatTransfer = function() {
+        baseHeatTransfer();
+
+        Object.keys(labState).forEach(itemId => {
+            const item = labState[itemId];
+            const itemEl = document.getElementById(itemId);
+            if (!itemEl || item.isShattered) return;
+
+            // 1. Thermal Shock Hazard: Heating dry/empty glass
+            if (item.isContainer && item.currentVolume === 0 && item.temperature >= MAX_DRY_TEMP) {
+                shatterGlassware(itemId, "Thermal Shock (Heated dry container without liquid)");
+            }
+
+            // 2. Over-Pressurization Hazard: Sealed container reaching boiling point
+            if (item.isSealed && item.temperature >= 100.0) {
+                item.pressure += 0.2; // Build up pressure per tick
+                if (item.pressure >= MAX_PRESSURE) {
+                    shatterGlassware(itemId, "Over-pressurization (Heated sealed vessel without pressure release)");
+                }
+            } else if (!item.isSealed && item.pressure > 1.0) {
+                item.pressure = 1.0; // Normal pressure when open
+            }
+        });
+    };
+
+    // C. Glassware Destruction Logic
+    function shatterGlassware(itemId, reason) {
+        const item = labState[itemId];
+        const itemEl = document.getElementById(itemId);
+        if (!itemEl || item.isShattered) return;
+
+        item.isShattered = true;
+        item.currentVolume = 0;
+        item.contents = [];
+
+        // Visual updates
+        itemEl.classList.add('shattered');
+        const iconEl = itemEl.querySelector('.item-icon');
+        if (iconEl) iconEl.textContent = '💥';
+        
+        const liquidDiv = itemEl.querySelector('.liquid-fill');
+        if (liquidDiv) liquidDiv.style.height = '0%';
+
+        window.logToExperiment(`HAZARD FAILURE: ${item.name} shattered due to ${reason}!`, 'hazard');
+
+        if (itemEl.classList.contains('selected')) {
+            updateTelemetry(item);
+            updateRightPanelControls(item.name, itemId);
+        }
+    }
+
+    // D. Splatter Warning Effect
+    function triggerSpatterEffect(itemId) {
+        const itemEl = document.getElementById(itemId);
+        if (!itemEl) return;
+        
+        itemEl.style.boxShadow = '0 0 20px #ff4d4d';
+        setTimeout(() => {
+            if (!itemEl.classList.contains('shattered')) {
+                itemEl.style.boxShadow = '';
+            }
+        }, 1000);
+    }
+
+    // E. Add "Stopper / Seal Container" Toggle to Container Controls
+    const previousControlsWithSafety = updateRightPanelControls;
+    updateRightPanelControls = function(itemName, itemId) {
+        previousControlsWithSafety(itemName, itemId);
+        const data = labState[itemId];
+
+        if (data && data.isContainer && !data.isShattered) {
+            const isSealed = data.isSealed || false;
+            const stopperBtnHTML = `
+                <div style="margin-top: 10px;">
+                    <button id="seal-btn" class="danger-btn" style="background:${isSealed ? '#ff9900' : '#444'}; width:100%;">
+                        ${isSealed ? '🔒 Sealed with Stopper' : '🔓 Open (Add Stopper)'}
+                    </button>
+                </div>
+            `;
+            activeControls.insertAdjacentHTML('beforeend', stopperBtnHTML);
+
+            document.getElementById('seal-btn').addEventListener('click', () => {
+                data.isSealed = !data.isSealed;
+                window.logToExperiment(`${data.name} ${data.isSealed ? 'sealed with rubber stopper' : 'unsealed'}.`);
+                updateRightPanelControls(itemName, itemId);
+            });
+        }
+    };
 
 });
