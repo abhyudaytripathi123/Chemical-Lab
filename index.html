@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Chemistry Lab</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="lab-container">
+        
+        <!-- LEFT PANEL: Stockroom & Inventory -->
+        <aside class="panel left-panel">
+            <h2>Stockroom</h2>
+            <div class="tabs">
+                <button class="tab-btn active" data-target="glassware">Glassware</button>
+                <button class="tab-btn" data-target="chemicals">Chemicals</button>
+                <button class="tab-btn" data-target="hardware">Hardware</button>
+            </div>
+            
+            <div class="tab-content active" id="glassware">
+                <!-- Draggable items will be populated here in Part 2 -->
+                <div class="inventory-item" draggable="true">Beaker (250mL)</div>
+                <div class="inventory-item" draggable="true">Erlenmeyer Flask</div>
+                <div class="inventory-item" draggable="true">Test Tube</div>
+            </div>
+            <div class="tab-content" id="chemicals">
+                <div class="inventory-item" draggable="true">HCl (1M)</div>
+                <div class="inventory-item" draggable="true">NaOH (1M)</div>
+                <div class="inventory-item" draggable="true">Distilled Water</div>
+            </div>
+            <div class="tab-content" id="hardware">
+                <div class="inventory-item" draggable="true">Bunsen Burner</div>
+                <div class="inventory-item" draggable="true">Thermometer</div>
+            </div>
+        </aside>
+
+        <!-- CENTER WORKSPACE: The Workbench -->
+        <main class="workspace" id="workbench">
+            <div class="workspace-header">
+                <h2>Workbench</h2>
+                <button id="reset-btn" class="danger-btn">Clean Workbench</button>
+            </div>
+            <!-- The drop zone for apparatus and chemical reactions -->
+            <div class="drop-zone" id="lab-canvas">
+                <p class="placeholder-text">Drag and drop equipment here to begin.</p>
+            </div>
+        </main>
+
+        <!-- RIGHT PANEL: Analysis & Controls -->
+        <aside class="panel right-panel">
+            <h2>Analysis & Controls</h2>
+            
+            <div class="module">
+                <h3>Live Telemetry</h3>
+                <ul class="telemetry-list">
+                    <li><strong>Temperature:</strong> <span id="temp-display">22.0</span> °C</li>
+                    <li><strong>pH Level:</strong> <span id="ph-display">7.0</span></li>
+                    <li><strong>Pressure:</strong> <span id="press-display">1.0</span> atm</li>
+                </ul>
+            </div>
+
+            <div class="module">
+                <h3>Equipment Controls</h3>
+                <div id="active-controls">
+                    <p class="placeholder-text">Select an item on the workbench to view controls.</p>
+                    <!-- Sliders and buttons will dynamically appear here -->
+                </div>
+            </div>
+
+            <div class="module">
+                <h3>Experiment Log</h3>
+                <div class="log-box" id="experiment-log">
+                    <p class="log-entry system">System initialized. Welcome to the lab.</p>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
