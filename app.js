@@ -729,5 +729,326 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
+    // --- 9. Experiment Manual & Lab Assessment Engine ---
+
+    // A. Define the Experiment Specification & Objective Rules
+    const activeExperiment = {
+        title: "Exp 101: Acid Heating & Safety Protocol",
+        maxScore: 100,
+        safetyPenalty: 0,
+        steps: [
+            { 
+                id: 1, 
+                desc: "Place a Beaker (250mL) on the workbench", 
+                points: 20, 
+                status: "pending", 
+                check: (state) => Object.values(state).some(i => i.name.includes('Beaker')) 
+            },
+            { 
+                id: 2, 
+                desc: "Add 50mL of HCl (1M) into the Beaker", 
+                points: 20, 
+                status: "pending", 
+                check: (state) => Object.values(state).some(i => i.name.includes('Beaker') && i.contents.includes('HCl (1M)') && i.currentVolume >= 50) 
+            },
+            { 
+                id: 3, 
+                desc: "Secure Beaker onto a Bunsen Burner", 
+                points: 20, 
+                status: "pending", 
+                check: (state) => Object.values(state).some(i => i.name.includes('Beaker') && i.attachedTo && labState[i.attachedTo]?.name.includes('Burner')) 
+            },
+            { 
+                id: 4, 
+                desc: "Heat solution to at least 50.0 °C", 
+                points: 20, 
+                status: "pending", 
+                check: (state) => Object.values(state).some(i => i.name.includes('Beaker') && i.temperature >= 50.0) 
+            },
+            { 
+                id: 5, 
+                desc: "Complete experiment without breaking glassware", 
+                points: 20, 
+                status: "pending", 
+                check: (state) => Object.values(state).length > 0 && !Object.values(state).some(i => i.isShattered) 
+            }
+        ]
+    };
+
+    // B. Render Manual UI inside the Right Panel
+    function injectManualUI() {
+        const rightPanel = document.querySelector('.right-panel');
+        if (!rightPanel) return;
+
+        const container = document.createElement('div');
+        container.className = 'module';
+        container.innerHTML = `
+            <div class="manual-header">
+                <span class="manual-title">${activeExperiment.title}</span>
+                <span id="grade-display" class="grade-badge">Grade: 0 / 100</span>
+            </div>
+            <ul class="task-list" id="task-list-container"></ul>
+        `;
+
+        // Insert at the top of the right panel
+        rightPanel.insertBefore(container, rightPanel.firstChild);
+        renderTaskList();
+    }
+
+    // C. Render Tasks Checklist
+    function renderTaskList() {
+        const listContainer = document.getElementById('task-list-container');
+        if (!listContainer) return;
+
+        listContainer.innerHTML = '';
+        activeExperiment.steps.forEach(step => {
+            const li = document.createElement('li');
+            li.className = `task-item ${step.status}`;
+            
+            let statusIcon = '⏳';
+            if (step.status === 'completed') statusIcon = '✓';
+            if (step.status === 'failed') statusIcon = '✕';
+
+            li.innerHTML = `
+                <span>${step.id}. ${step.desc}</span>
+                <span class="task-status">${statusIcon}</span>
+            `;
+            listContainer.appendChild(li);
+        });
+
+        calculateGrade();
+    }
+
+    // D. Evaluate Step Completion & Calculate Score
+    setInterval(() => {
+        evaluateExperimentProgress();
+    }, 1000);
+
+    function evaluateExperimentProgress() {
+        let stateUpdated = false;
+
+        // Deduct points if hazards occurred
+        const hazardsCount = Object.values(labState).filter(i => i.isShattered).length;
+        activeExperiment.safetyPenalty = hazardsCount * 25; // -25 pts per shattered item
+
+        activeExperiment.steps.forEach(step => {
+            // Check Step 5 (Safety condition) dynamically
+            if (step.id === 5) {
+                if (hazardsCount > 0 && step.status !== 'failed') {
+                    step.status = 'failed';
+                    stateUpdated = true;
+                } else if (hazardsCount === 0 && Object.values(labState).length > 0 && step.status !== 'completed') {
+                    step.status = 'completed';
+                    stateUpdated = true;
+                }
+                return;
+            }
+
+            // Normal steps checklist
+            if (step.status !== 'completed' && step.check(labState)) {
+                step.status = 'completed';
+                stateUpdated = true;
+                window.logToExperiment(`ASSESSMENT OBJECTIVE ACHIEVED: Step ${step.id} verified!`, 'system');
+            }
+        });
+
+        if (stateUpdated) {
+            renderTaskList();
+        }
+    }
+
+    // E. Grade Calculator
+    function calculateGrade() {
+        let earnedPoints = 0;
+
+        activeExperiment.steps.forEach(step => {
+            if (step.status === 'completed') {
+                earnedPoints += step.points;
+            }
+        });
+
+        const finalGrade = Math.max(0, earnedPoints - activeExperiment.safetyPenalty);
+        const gradeBadge = document.getElementById('grade-display');
+        if (gradeBadge) {
+            gradeBadge.textContent = `Grade: ${finalGrade} / ${activeExperiment.maxScore}`;
+            gradeBadge.style.backgroundColor = finalGrade >= 70 ? '#5cb85c' : (finalGrade >= 40 ? '#ffcc00' : '#d9534f');
+        }
+    }
+
+    // Initialize the Manual UI
+    injectManualUI();
+    // --- 10. Report Exporter & Custom Builder Engine ---
+
+    // A. Inject Action Buttons to Workspace Header
+    function injectHeaderToolbar() {
+        const header = document.querySelector('.workspace-header');
+        if (!header) return;
+
+        const btnGroup = document.createElement('div');
+        btnGroup.style.display = 'flex';
+        btnGroup.style.gap = '10px';
+
+        btnGroup.innerHTML = `
+            <button id="builder-btn" class="secondary-btn">➕ New Protocol</button>
+            <button id="export-btn" class="action-btn">📄 Export Report</button>
+        `;
+
+        // Prepend before reset button
+        header.insertBefore(btnGroup, header.lastElementChild);
+
+        document.getElementById('builder-btn').addEventListener('click', openExperimentBuilder);
+        document.getElementById('export-btn').addEventListener('click', generateLabReport);
+    }
+
+    // B. Custom Experiment Builder Modal
+    function openExperimentBuilder() {
+        const modalHTML = `
+            <div class="modal-overlay" id="builder-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Build Custom Lab Protocol</h3>
+                        <button class="close-btn" onclick="closeModal('builder-modal')">×</button>
+                    </div>
+                    <form id="custom-lab-form">
+                        <div class="form-group">
+                            <label>Lab Protocol Title</label>
+                            <input type="text" id="exp-title" class="form-control" placeholder="e.g. Exp 202: Titration Analysis" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Required Chemical</label>
+                            <select id="exp-chem" class="form-control">
+                                <option value="HCl (1M)">HCl (1M)</option>
+                                <option value="NaOH (1M)">NaOH (1M)</option>
+                                <option value="Distilled Water">Distilled Water</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Required Target Temperature (°C)</label>
+                            <input type="number" id="exp-temp" class="form-control" value="60" min="25" max="100">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="secondary-btn" onclick="closeModal('builder-modal')">Cancel</button>
+                            <button type="submit" class="action-btn">Load Protocol</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        document.getElementById('custom-lab-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('exp-title').value;
+            const chem = document.getElementById('exp-chem').value;
+            const targetTemp = parseFloat(document.getElementById('exp-temp').value);
+
+            // Reconfigure active experiment state dynamically
+            activeExperiment.title = title;
+            activeExperiment.safetyPenalty = 0;
+            activeExperiment.steps = [
+                {
+                    id: 1,
+                    desc: `Place a Beaker on the workbench`,
+                    points: 25,
+                    status: 'pending',
+                    check: (state) => Object.values(state).some(i => i.name.includes('Beaker'))
+                },
+                {
+                    id: 2,
+                    desc: `Pour ${chem} into the Beaker`,
+                    points: 25,
+                    status: 'pending',
+                    check: (state) => Object.values(state).some(i => i.name.includes('Beaker') && i.contents.includes(chem))
+                },
+                {
+                    id: 3,
+                    desc: `Heat solution to ${targetTemp}°C`,
+                    points: 25,
+                    status: 'pending',
+                    check: (state) => Object.values(state).some(i => i.name.includes('Beaker') && i.temperature >= targetTemp)
+                },
+                {
+                    id: 4,
+                    desc: `Zero safety violations occurred`,
+                    points: 25,
+                    status: 'pending',
+                    check: (state) => Object.values(state).length > 0 && !Object.values(state).some(i => i.isShattered)
+                }
+            ];
+
+            // Refresh UI
+            document.querySelector('.manual-title').textContent = title;
+            renderTaskList();
+            closeModal('builder-modal');
+            window.logToExperiment(`NEW PROTOCOL LOADED: ${title}`, 'system');
+        });
+    }
+
+    // Helper to remove modal
+    window.closeModal = function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.remove();
+    };
+
+    // C. Lab Report PDF Generator
+    function generateLabReport() {
+        // Collect current stats
+        const now = new Date();
+        const dateStr = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+        const gradeText = document.getElementById('grade-display')?.textContent || 'Grade: 0 / 100';
+        
+        const logs = Array.from(document.querySelectorAll('#experiment-log .log-entry'))
+            .map(p => `<li>${p.textContent}</li>`).join('');
+
+        const stepsSummary = activeExperiment.steps.map(s => 
+            `<tr>
+                <td style="padding:6px; border:1px solid #ccc;">${s.id}. ${s.desc}</td>
+                <td style="padding:6px; border:1px solid #ccc; font-weight:bold; color:${s.status === 'completed' ? 'green' : 'red'};">${s.status.toUpperCase()}</td>
+                <td style="padding:6px; border:1px solid #ccc;">${s.status === 'completed' ? s.points : 0} / ${s.points}</td>
+            </tr>`
+        ).join('');
+
+        const reportHTML = `
+            <div id="print-report-container">
+                <div style="border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:20px;">
+                    <h1 style="margin:0; font-size:22px;">University Virtual Chemistry Laboratory Report</h1>
+                    <p style="margin:5px 0 0 0; color:#555;">Generated: ${dateStr}</p>
+                </div>
+
+                <h2>Experiment: ${activeExperiment.title}</h2>
+                <h3 style="color:#2b6cb0;">Final Assessment Summary: ${gradeText}</h3>
+
+                <h3 style="margin-top:20px;">Objectives Evaluation</h3>
+                <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+                    <thead>
+                        <tr style="background:#f2f2f2;">
+                            <th style="padding:6px; border:1px solid #ccc; text-align:left;">Objective</th>
+                            <th style="padding:6px; border:1px solid #ccc; text-align:left;">Status</th>
+                            <th style="padding:6px; border:1px solid #ccc; text-align:left;">Points Earned</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stepsSummary}
+                    </tbody>
+                </table>
+
+                <h3>Chronological Session Log</h3>
+                <ul style="font-family:monospace; font-size:12px; line-height:1.5; background:#f9f9f9; padding:15px; border:1px solid #ddd; list-style:none;">
+                    ${logs}
+                </ul>
+            </div>
+        `;
+
+        // Inject temporarily into DOM and print
+        const existingReport = document.getElementById('print-report-container');
+        if (existingReport) existingReport.remove();
+
+        document.body.insertAdjacentHTML('beforeend', reportHTML);
+        window.print();
+    }
+
+    // Initialize Header Toolbar
+    injectHeaderToolbar();
 
 });
