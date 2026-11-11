@@ -285,3 +285,229 @@ body {
     50% { opacity: 0.8; }
     100% { transform: translate(-50%, -12px); opacity: 0; }
 }
+/* --- Hazard & Damage Effects --- */
+.canvas-item.shattered {
+    border-color: #ff3333 !important;
+    background-color: rgba(255, 0, 0, 0.2) !important;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.6) !important;
+    animation: shake 0.3s ease-in-out;
+}
+
+.canvas-item.shattered .item-icon {
+    filter: drop-shadow(0 0 5px red);
+}
+
+.log-entry.hazard {
+    color: #ff4d4d;
+    font-weight: bold;
+    background-color: rgba(255, 77, 77, 0.1);
+    padding: 2px 5px;
+    border-left: 3px solid #ff4d4d;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+/* --- Experiment Manual & Assessment UI --- */
+.manual-card {
+    background-color: #252526;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 15px;
+}
+
+.manual-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 8px;
+}
+
+.manual-title {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #4da6ff;
+}
+
+.grade-badge {
+    background-color: #4da6ff;
+    color: #121212;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    font-family: monospace;
+}
+
+.task-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    padding: 8px 10px;
+    background-color: #1e1e1e;
+    border-radius: 4px;
+    border-left: 3px solid #666;
+    transition: all 0.25s ease;
+}
+
+.task-item.pending {
+    border-left-color: #ffcc00;
+}
+
+.task-item.completed {
+    border-left-color: #5cb85c;
+    background-color: rgba(92, 184, 92, 0.08);
+}
+
+.task-item.completed .task-status {
+    color: #5cb85c;
+    font-weight: bold;
+}
+
+.task-item.failed {
+    border-left-color: #d9534f;
+    background-color: rgba(217, 83, 79, 0.08);
+}
+
+.task-item.failed .task-status {
+    color: #d9534f;
+    font-weight: bold;
+}
+
+
+/* --- Modals & Overlay UI --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: #252526;
+    border: 1px solid #3c3c3c;
+    border-radius: 8px;
+    width: 520px;
+    max-width: 90vw;
+    max-height: 85vh;
+    padding: 24px;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+.modal-header h3 {
+    color: #4da6ff;
+    font-size: 1.1rem;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+.close-btn:hover { color: #fff; }
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #ccc;
+    margin-bottom: 5px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #4da6ff;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-btn {
+    background-color: #4da6ff;
+    color: #121212;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.action-btn:hover { background-color: #3b8bd9; }
+
+.secondary-btn {
+    background-color: #444;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.secondary-btn:hover { background-color: #555; }
+
+/* --- Print / PDF Export Styling --- */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #print-report-container, #print-report-container * {
+        visibility: visible;
+    }
+    #print-report-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        color: #000;
+        background: #fff;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+    }
+}
