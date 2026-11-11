@@ -204,5 +204,169 @@ document.addEventListener('DOMContentLoaded', () => {
             activeControls.innerHTML += `<p class="placeholder-text">No active controls for this item.</p>`;
         }
     }
+    // --- 5. Chemical Simulation Engine ---
+    
+    // Global state to track properties of everything on the workbench
+    const labState = {}; 
+
+    // Helper to extract max volume from string (e.g., "Beaker (250mL)")
+    function getMaxVolume(name) {
+        const match = name.match(/(\d+)mL/);
+        return match ? parseInt(match[1]) : 100; // Default 100mL if not specified
+    }
+
+    // A. Initialize Item Data when spawned
+    // (Modify your existing spawnCanvasItem function to include this, or hook into it)
+    const originalSpawn = spawnCanvasItem;
+    spawnCanvasItem = function(name, x, y) {
+        // Call the original spawn logic to create the DOM element
+        originalSpawn(name, x, y);
+        
+        // Grab the newly created item's ID (itemCount is from Part 2)
+        const itemId = `item-${itemCount}`;
+        const itemEl = document.getElementById(itemId);
+
+        // Add a liquid fill div to the item
+        const liquidDiv = document.createElement('div');
+        liquidDiv.className = 'liquid-fill';
+        itemEl.appendChild(liquidDiv);
+
+        // Register in the physics/chemistry state
+        const isContainer = name.includes('Beaker') || name.includes('Flask') || name.includes('Tube');
+        
+        labState[itemId] = {
+            name: name,
+            isContainer: isContainer,
+            maxVolume: isContainer ? getMaxVolume(name) : 0,
+            currentVolume: 0,
+            temperature: 22.0, // Default room temp
+            pH: 7.0, // Default neutral
+            contents: [] // Array to track what chemicals are inside
+        };
+    };
+
+    // B. Pouring Logic (Dropping an item onto another item)
+    // Update the canvas drop listener from Part 2
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        
+        const canvasRect = canvas.getBoundingClientRect();
+        const dropX = e.clientX - canvasRect.left;
+        const dropY = e.clientY - canvasRect.top;
+
+        // Check if dropped directly onto an existing canvas item
+        const targetEl = document.elementFromPoint(e.clientX, e.clientY).closest('.canvas-item');
+
+        if (draggedItemType === 'new') {
+            if (targetEl && labState[targetEl.id].isContainer && !draggedItemName.includes('Beaker') && !draggedItemName.includes('Flask')) {
+                // Poured a chemical directly into a container from inventory
+                pourChemical(draggedItemName, targetEl.id);
+            } else {
+                // Dropped onto empty workspace
+                spawnCanvasItem(draggedItemName, dropX, dropY);
+            }
+            draggedItemType = null;
+        }
+    });
+
+    // C. The Mixing Math
+    function pourChemical(chemicalName, targetId) {
+        const container = labState[targetId];
+        const targetEl = document.getElementById(targetId);
+        
+        // Define what is being poured (Simulated pouring 50mL at a time for this example)
+        const pourAmount = 50; 
+        
+        if (container.currentVolume + pourAmount > container.maxVolume) {
+            window.logToExperiment(`Spill Warning: ${container.name} overflowed!`, 'danger');
+            return;
+        }
+
+        // 1. Update Volume & Contents
+        container.currentVolume += pourAmount;
+        container.contents.push(chemicalName);
+
+        // 2. Simplified Chemistry Engine (Calculating new pH)
+        let newPH = container.pH;
+        let liquidClass = 'water';
+
+        if (chemicalName.includes('HCl')) {
+            newPH = ((container.pH * (container.currentVolume - pourAmount)) + (1.0 * pourAmount)) / container.currentVolume;
+            liquidClass = 'acid';
+        } else if (chemicalName.includes('NaOH')) {
+            newPH = ((container.pH * (container.currentVolume - pourAmount)) + (13.0 * pourAmount)) / container.currentVolume;
+            liquidClass = 'base';
+        }
+
+        container.pH = parseFloat(newPH.toFixed(2)); // Round to 2 decimals
+
+        // 3. Update Visuals
+        const fillPercentage = (container.currentVolume / container.maxVolume) * 100;
+        const liquidDiv = targetEl.querySelector('.liquid-fill');
+        liquidDiv.style.height = `${fillPercentage}%`;
+        liquidDiv.className = `liquid-fill ${liquidClass}`;
+
+        window.logToExperiment(`Added ${pourAmount}mL of ${chemicalName} to ${container.name}.`);
+
+        // 4. Update Telemetry if this item is currently selected
+        if (targetEl.classList.contains('selected')) {
+            updateTelemetry(container);
+            updateRightPanelControls(container.name, targetId); // Refresh controls to show new volume
+        }
+    }
+
+    // D. Update Live Telemetry Panel
+    function updateTelemetry(containerData) {
+        document.getElementById('temp-display').textContent = containerData.temperature.toFixed(1);
+        document.getElementById('ph-display').textContent = containerData.pH.toFixed(1);
+        // Pressure remains 1.0 atm for open containers
+        document.getElementById('press-display').textContent = '1.0'; 
+    }
+
+    // E. Hook Selection to Telemetry
+    // Add this inside the makeItemInteractable 'mousedown' event from Part 2
+    document.addEventListener('mousedown', (e) => {
+        const itemEl = e.target.closest('.canvas-item');
+        if (itemEl && labState[itemEl.id]) {
+            updateTelemetry(labState[itemEl.id]);
+        }
+    });
+
+    // F. Update Container Controls display (Overrides the mock logic in Part 2)
+    const originalUpdateControls = updateRightPanelControls;
+    updateRightPanelControls = function(itemName, itemId) {
+        const data = labState[itemId];
+        if (data && data.isContainer) {
+            const contentString = data.contents.length > 0 ? data.contents.join(', ') : 'Empty';
+            activeControls.innerHTML = `
+                <h4 style="color:#fff; margin-bottom:10px;">Selected: ${itemName}</h4>
+                <div style="font-size:0.85rem; margin-bottom:10px;">
+                    Volume: <span style="color:#4da6ff;">${data.currentVolume} / ${data.maxVolume} mL</span><br>
+                    Contents: <span style="color:#aaa;">${contentString}</span>
+                </div>
+                <button class="danger-btn" style="background:#5bc0de; width:100%;" onclick="emptyContainer('${itemId}')">Empty Container</button>
+            `;
+        } else {
+            originalUpdateControls(itemName, itemId);
+        }
+    };
+
+    // G. Global function to empty a container
+    window.emptyContainer = function(itemId) {
+        const container = labState[itemId];
+        container.currentVolume = 0;
+        container.pH = 7.0;
+        container.temperature = 22.0;
+        container.contents = [];
+
+        const targetEl = document.getElementById(itemId);
+        const liquidDiv = targetEl.querySelector('.liquid-fill');
+        liquidDiv.style.height = '0%';
+        liquidDiv.className = 'liquid-fill';
+
+        updateTelemetry(container);
+        updateRightPanelControls(container.name, itemId);
+        window.logToExperiment(`Emptied ${container.name}.`);
+    };
 
 });
