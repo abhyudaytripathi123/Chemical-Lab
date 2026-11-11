@@ -1,0 +1,169 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #1e1e1e; /* Dark theme for better contrast */
+    color: #f0f0f0;
+    overflow: hidden; /* Prevents whole-page scrolling */
+}
+
+.lab-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Panel Base Styles */
+.panel {
+    background-color: #252526;
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+}
+
+.left-panel {
+    width: 300px;
+    z-index: 10;
+}
+
+.right-panel {
+    width: 350px;
+    z-index: 10;
+    border-left: 1px solid #333;
+    overflow-y: auto;
+}
+
+/* Center Workspace */
+.workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #1a1a1a;
+    background-image: radial-gradient(#333 1px, transparent 1px);
+    background-size: 20px 20px; /* Creates a grid effect */
+}
+
+.workspace-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background-color: rgba(37, 37, 38, 0.9);
+    border-bottom: 1px solid #333;
+}
+
+.drop-zone {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Tab Navigation */
+.tabs {
+    display: flex;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #aaa;
+    padding: 8px 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    color: #4da6ff;
+    border-bottom: 2px solid #4da6ff;
+}
+
+.tab-content {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
+/* Inventory Items */
+.inventory-item {
+    background-color: #333;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: grab;
+    border: 1px solid #444;
+    transition: background 0.2s;
+}
+
+.inventory-item:hover {
+    background-color: #444;
+    border-color: #4da6ff;
+}
+
+/* Right Panel Modules */
+.module {
+    margin-top: 20px;
+    background-color: #2d2d2d;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #3c3c3c;
+}
+
+.module h3 {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    color: #4da6ff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.telemetry-list {
+    list-style: none;
+    line-height: 1.8;
+}
+
+.log-box {
+    background-color: #1e1e1e;
+    height: 150px;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+}
+
+.log-entry.system {
+    color: #aaa;
+}
+
+/* Buttons */
+.danger-btn {
+    background-color: #d9534f;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.danger-btn:hover { background-color: #c9302c; }
+.placeholder-text { color: #666; font-style: italic; }
